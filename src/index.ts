@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import crypto from "crypto";
-import { base64URLDecode, verifyAuthenticatorDataAndAttestation, verifyClientDataJSON } from "./helper";
+import { base64URLDecode, verifyAuthenticatorDataAndAttestation, verifyClientDataJSON, verifyChallenge, parseAttestationObject } from "./helper";
 
 const app = express();
 app.use(express.json());
@@ -24,12 +24,13 @@ app.post("/generate-challenge", (req, res) => {
   const { username } = req.body;
   const challenge = crypto.randomBytes(32).toString("base64");
   const challengeId = crypto.randomBytes(16).toString("hex");
-  if (!registeredUsers[username]) {
-    registeredUsers[username] = { challenge, challengeId };
-    return res.json({ challengeId, challenge, rpName: "WebAuthn demo", rpId: "localhost" });
-  }
+  // if (!registeredUsers[username]) {
   challengeStorage.set(challengeId, challenge);
-  return res.status(200).send("User already registered!");
+
+  return res.json({ challengeId, challenge, rpName: "WebAuthn demo", rpId: "localhost" });
+  // }
+
+  // return res.status(400).send("User already registered!");
 });
 
 app.post("/register", (req, res) => {
@@ -40,11 +41,12 @@ app.post("/register", (req, res) => {
     return res.status(400).send("Invalid challenge ID");
   }
 
-  if (!verifyClientDataJSON(base64URLDecode(clientDataJSON), storedChallenge)) {
+  if (!verifyChallenge(base64URLDecode(clientDataJSON), storedChallenge)) {
     return res.status(400).send("Invalid client data JSON");
   }
+  const { credID, COSEPublicKey } = parseAttestationObject(base64URLDecode(attestationObject));
 
-  const userRegistrationData = { attestation: attestationObject, clientData: clientDataJSON }; // Store attestation object
+  const userRegistrationData = { attestation: attestationObject, clientData: clientDataJSON, credID, COSEPublicKey }; // Store attestation object  
 
   registeredUsers[username] = userRegistrationData;
 
@@ -52,10 +54,15 @@ app.post("/register", (req, res) => {
 });
 
 app.post("/login", (req, res) => {
-  const { authenticatorData, username } = req.body;
+  const { authenticatorData, username, clientDataJSON, challengeId } = req.body;
+  const storedChallenge = challengeStorage.get(challengeId);
 
-  if (!registeredUsers[username]) {
-    return res.status(404).send("User not registered.");
+  if (!storedChallenge) {
+    return res.status(400).send("Invalid challenge ID"); 12
+  }
+
+  if (!verifyChallenge(base64URLDecode(clientDataJSON), storedChallenge)) {
+    return res.status(400).send("Invalid client data JSON");
   }
 
   // Simulate a login process by comparing authenticator data
