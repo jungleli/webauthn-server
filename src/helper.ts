@@ -5,7 +5,7 @@ function generateRandomUserId() {
   return crypto.randomBytes(8).toString("hex");
 }
 
-function verifyAuthenticatorDataAndAttestation(authenticatorData: string, attestationObject: string, clientDataJSON: string) {
+function verifyAuthenticatorDataAndAttestation(authenticatorData: any, attestationObject: any, clientDataJSON: any) {
   const authenticatorDataBuffer = base64URLDecode(authenticatorData);
   const attestationObjectBuffer = base64URLDecode(attestationObject);
   const clientDataJSONBuffer = base64URLDecode(clientDataJSON);

@@ -9,23 +9,27 @@ app.use(express.json());
 // Enable CORS for all routes
 app.use(cors());
 
-const registeredUsers: Record<string, { attestation: string; clientData: string }> = {
-  "12": {
-    attestation:
-      "o2NmbXRkbm9uZWdhdHRTdG10oGhhdXRoRGF0YViYSZYN5YgOjGh0NBcPZHZgW4/krrmihjLHmVzzuoMdl2NdAAAAAAAAAAAAAAAAAAAAAAAAAAAAFJ3jImqEXLFLrkNRfrOncBR9P3OopQECAyYgASFYIEJP95sicsTsvFh0Fxfql2DjoTD5z1GKDGCdTIEJS+piIlggqLIX3pbhZlOhcYhVI4EXb1E2tl0guLS/UTuRaytKCdo=",
-    clientData:
-      "eyJ0eXBlIjoid2ViYXV0aG4uY3JlYXRlIiwiY2hhbGxlbmdlIjoiZFQzODU3X3giLCJvcmlnaW4iOiJodHRwOi8vbG9jYWxob3N0OjMwMDAiLCJjcm9zc09yaWdpbiI6ZmFsc2V9",
-  },
+const registeredUsers: Record<string, { attestation?: string; clientData?: string; challenge?: string; challengeId?: string }> = {
+  //   "12": {
+  //     attestation:
+  //       "o2NmbXRkbm9uZWdhdHRTdG10oGhhdXRoRGF0YViYSZYN5YgOjGh0NBcPZHZgW4/krrmihjLHmVzzuoMdl2NdAAAAAAAAAAAAAAAAAAAAAAAAAAAAFJ3jImqEXLFLrkNRfrOncBR9P3OopQECAyYgASFYIEJP95sicsTsvFh0Fxfql2DjoTD5z1GKDGCdTIEJS+piIlggqLIX3pbhZlOhcYhVI4EXb1E2tl0guLS/UTuRaytKCdo=",
+  //     clientData:
+  //       "eyJ0eXBlIjoid2ViYXV0aG4uY3JlYXRlIiwiY2hhbGxlbmdlIjoiZFQzODU3X3giLCJvcmlnaW4iOiJodHRwOi8vbG9jYWxob3N0OjMwMDAiLCJjcm9zc09yaWdpbiI6ZmFsc2V9",
+  //   },
 };
 
 const challengeStorage = new Map();
 
-app.get("/generate-challenge", (req, res) => {
+app.post("/generate-challenge", (req, res) => {
+  const { username } = req.body;
   const challenge = crypto.randomBytes(32).toString("base64");
   const challengeId = crypto.randomBytes(16).toString("hex");
-
+  if (!registeredUsers[username]) {
+    registeredUsers[username] = { challenge, challengeId };
+    return res.json({ challengeId, challenge, rpName: "WebAuthn demo", rpId: "localhost" });
+  }
   challengeStorage.set(challengeId, challenge);
-  res.json({ challengeId, challenge });
+  return res.status(200).send("User already registered!");
 });
 
 app.post("/register", (req, res) => {
