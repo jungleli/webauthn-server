@@ -87,12 +87,49 @@ function verifyClientDataJSON(clientDataJSON: Uint8Array, expectedChallenge: str
 
   return true;
 }
+function parseAuthData(buffer: any){
+  let rpIdHash = buffer.slice(0,32);
+  buffer = buffer.slice(32);
+
+  let flagsBuf = buffer.slice(0,1);
+  buffer = buffer.slice(1);
+  let flagsInt = flagsBuf[0];
+  let flags = {
+    up: !!(flagsInt & 0x01),
+    uv: !!(flagsInt & 0x04),
+    at: !!(flagsInt & 0x40),
+    ed: !!(flagsInt & 0x80),
+    flagsInt
+  }
+  let counterBuf = buffer.slice(0,4);
+  buffer = buffer.slice(4);
+
+  let counter = counterBuf.readUInt32BE(0);
+  let aaguid = undefined;
+  let credID = undefined;
+  let COSEPublicKey = undefined;
+  if(flags.at){
+    aaguid = buffer.slice(0, 16);
+    buffer = buffer.slice(16);
+    let credIDLenBuf = buffer.slice(0,2);
+    buffer = buffer.slice(2);
+    let credIDLen = credIDLenBuf.readUInt16BE(0);
+    credID = buffer.slice(0, credIDLen);
+    buffer = buffer.slice(credIDLen);
+    COSEPublicKey = buffer;
+  }
+  console.log("authData: " + {rpIdHash, flagsBuf, flags, counter, counterBuf, aaguid, credID, COSEPublicKey});
+  return {rpIdHash, flagsBuf, flags, counter, counterBuf, aaguid, credID, COSEPublicKey}
+
+}
 
 function verifyAttestationObject(attestationObject: Uint8Array) {
   // Parse attestation object (assuming it's CBOR encoded)
   const attestationObjectArray = new Uint8Array(attestationObject);
   const parsedAttestationObject = cbor.decode(attestationObjectArray);
   console.log("parsedAttestationObject", parsedAttestationObject);
+
+  parseAuthData(parsedAttestationObject.authData);
 
   // Verify that the attestation object includes "fmt" field (format)
   if (!parsedAttestationObject.hasOwnProperty("fmt")) {
