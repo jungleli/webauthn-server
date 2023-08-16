@@ -5,7 +5,7 @@ function generateRandomUserId() {
   return crypto.randomBytes(8).toString("hex");
 }
 
-function verifyAuthenticatorDataAndAttestation(authenticatorData: string, attestationObject: string, clientDataJSON: string) {
+function verifyAuthenticatorDataAndAttestation(authenticatorData: any, attestationObject: any, clientDataJSON: any) {
   const authenticatorDataBuffer = base64URLDecode(authenticatorData);
   const attestationObjectBuffer = base64URLDecode(attestationObject);
   const clientDataJSONBuffer = base64URLDecode(clientDataJSON);
@@ -31,7 +31,7 @@ function verifyAuthenticatorDataAndAttestation(authenticatorData: string, attest
   return false;
 }
 
-function base64URLDecode(input: string) {
+export function base64URLDecode(input: string) {
   // Convert base64 URL-safe to base64 (add padding if needed)
   const base64 = input.replace(/-/g, "+").replace(/_/g, "/");
 
@@ -40,6 +40,16 @@ function base64URLDecode(input: string) {
 
   // Convert binary buffer to Uint8Array
   return new Uint8Array(binaryBuffer);
+}
+
+export function base64URLToString(input: string) {
+  let base64 = input.replace(/-/g, "+").replace(/_/g, "/");
+
+  while (base64.length % 4 !== 0) {
+    base64 += "=";
+  }
+
+  return base64;
 }
 
 function extractAuthenticatorData(authenticatorData: Uint8Array) {
@@ -61,14 +71,20 @@ function extractAuthenticatorData(authenticatorData: Uint8Array) {
   };
 }
 
-function verifyClientDataJSON(clientDataJSON: Uint8Array, expectedChallenge: string = "dT3857_x", expectedOrigin: string = "http://localhost:3000") {
+export function verifyClientDataJSON(
+  clientDataJSON: Uint8Array,
+  expectedChallenge: string = "dT3857_x",
+  expectedOrigin: string = "http://localhost:3000"
+) {
   const clientDataString = new TextDecoder().decode(clientDataJSON);
   const clientData = JSON.parse(clientDataString);
 
   console.log("clientData", clientData);
+  console.log("expectedChallenge", expectedChallenge);
 
   // Verify challenge
-  const challenge = clientData.challenge;
+  const challenge = base64URLToString(clientData.challenge);
+
   if (challenge !== expectedChallenge) {
     return false;
   }
