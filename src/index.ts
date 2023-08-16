@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
-import { verifyAuthenticatorDataAndAttestation } from "./helper";
+import crypto from "crypto";
+import { base64URLDecode, verifyAuthenticatorDataAndAttestation, verifyClientDataJSON } from "./helper";
 
 const app = express();
 app.use(express.json());
@@ -17,8 +18,27 @@ const registeredUsers: Record<string, { attestation: string; clientData: string 
   },
 };
 
+const challengeStorage = new Map();
+
+app.get("/generate-challenge", (req, res) => {
+  const challenge = crypto.randomBytes(32).toString("base64");
+  const challengeId = crypto.randomBytes(16).toString("hex");
+
+  challengeStorage.set(challengeId, challenge);
+  res.json({ challengeId, challenge });
+});
+
 app.post("/register", (req, res) => {
-  const { attestationObject, clientDataJSON, username } = req.body;
+  const { attestationObject, clientDataJSON, username, challengeId } = req.body;
+  const storedChallenge = challengeStorage.get(challengeId);
+
+  if (!storedChallenge) {
+    return res.status(400).send("Invalid challenge ID");
+  }
+
+  if (!verifyClientDataJSON(base64URLDecode(clientDataJSON), storedChallenge)) {
+    return res.status(400).send("Invalid client data JSON");
+  }
 
   const userRegistrationData = { attestation: attestationObject, clientData: clientDataJSON }; // Store attestation object
 
