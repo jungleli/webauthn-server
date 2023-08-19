@@ -55,6 +55,20 @@ var COSEALGHASH = {
   '-36': 'sha512'
 }
 
+export function verifySignature(signature: any, authenticatorData: any, clientDataJSON: any, COSEPublicKey: any){
+  const clientDataHash = crypto.createHash("sha256").update(clientDataJSON).digest("hex");
+  console.log("clientDataHash:" + clientDataHash);
+  const src = authenticatorData + "." + clientDataHash;
+  console.log("src: "+ src);
+  console.log()
+  const isValid = (src: string, COSEPublicKey: any, signature:string) =>{
+    const isValid = crypto.createVerify("SHA256").update(Buffer.from(src)).verify(Buffer.from(COSEPublicKey), signature, "base64");
+    console.log("===verify signature:" + isValid);
+  return isValid;
+}
+return false;
+}
+
 
 function verifyAuthenticatorDataAndAttestation(authenticatorData: any, attestationObject: any, clientDataJSON: any) {
   const authenticatorDataBuffer = base64URLDecode(authenticatorData);
@@ -79,6 +93,7 @@ function verifyAuthenticatorDataAndAttestation(authenticatorData: any, attestati
     return true;
   }
 
+ 
   return false;
 }
 
@@ -271,7 +286,7 @@ function verifyAttestationObject(attestationObject: Uint8Array) {
 const parseAttestationObject = (attestationObject: Uint8Array) => {
   const attestationObjectArray = new Uint8Array(attestationObject);
   const parsedAttestationObject = cbor.decode(attestationObjectArray);
-  console.log("======parsedAttestationObject", parsedAttestationObject);
+ // console.log("======parsedAttestationObject", parsedAttestationObject);
   return parseAuthData(parsedAttestationObject.authData);
 }
 

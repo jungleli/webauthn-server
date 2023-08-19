@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import crypto from "crypto";
-import { base64URLDecode, verifyAuthenticatorDataAndAttestation, verifyClientDataJSON, verifyChallenge, parseAttestationObject } from "./helper";
+import { base64URLDecode, verifyAuthenticatorDataAndAttestation, verifyClientDataJSON, verifyChallenge, parseAttestationObject, verifySignature } from "./helper";
 
 const app = express();
 app.use(express.json());
@@ -9,7 +9,8 @@ app.use(express.json());
 // Enable CORS for all routes
 app.use(cors());
 
-const registeredUsers: Record<string, { attestation?: string; clientData?: string; challenge?: string; challengeId?: string }> = {
+const registeredUsers: Record<string, { attestation?: string; clientData?: string; challenge?: string; challengeId?: string; 
+  credID: string; COSEPublicKey: any;}> = {
   //   "12": {
   //     attestation:
   //       "o2NmbXRkbm9uZWdhdHRTdG10oGhhdXRoRGF0YViYSZYN5YgOjGh0NBcPZHZgW4/krrmihjLHmVzzuoMdl2NdAAAAAAAAAAAAAAAAAAAAAAAAAAAAFJ3jImqEXLFLrkNRfrOncBR9P3OopQECAyYgASFYIEJP95sicsTsvFh0Fxfql2DjoTD5z1GKDGCdTIEJS+piIlggqLIX3pbhZlOhcYhVI4EXb1E2tl0guLS/UTuRaytKCdo=",
@@ -45,7 +46,7 @@ app.post("/register", (req, res) => {
     return res.status(400).send("Invalid client data JSON");
   }
   const { credID, COSEPublicKey } = parseAttestationObject(base64URLDecode(attestationObject));
-
+  console.log("==========registered: public key: " + COSEPublicKey);
   const userRegistrationData = { attestation: attestationObject, clientData: clientDataJSON, credID, COSEPublicKey }; // Store attestation object  
 
   registeredUsers[username] = userRegistrationData;
@@ -54,16 +55,20 @@ app.post("/register", (req, res) => {
 });
 
 app.post("/login", (req, res) => {
-  const { authenticatorData, username, clientDataJSON, challengeId } = req.body;
+  const { authenticatorData, username, clientDataJSON, challengeId, signature } = req.body;
   const storedChallenge = challengeStorage.get(challengeId);
 
-  if (!storedChallenge) {
-    return res.status(400).send("Invalid challenge ID"); 12
-  }
+  // if (!storedChallenge) {
+  //   return res.status(400).send("Invalid challenge ID"); 12
+  // }
 
-  if (!verifyChallenge(base64URLDecode(clientDataJSON), storedChallenge)) {
-    return res.status(400).send("Invalid client data JSON");
-  }
+  // if (!verifyChallenge(base64URLDecode(clientDataJSON), storedChallenge)) {
+  //   return res.status(400).send("Invalid client data JSON");
+  // }
+
+  //verify signature
+  console.log("before signature verifying .........");
+  verifySignature(signature, authenticatorData, clientDataJSON, registeredUsers[username].COSEPublicKey);
 
   // Simulate a login process by comparing authenticator data
   if (verifyAuthenticatorDataAndAttestation(authenticatorData, registeredUsers[username].attestation, registeredUsers[username].clientData)) {
