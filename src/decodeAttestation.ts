@@ -3,7 +3,7 @@ import { Encoder } from "cbor-x";
 const cobrEncoder = new Encoder({ mapsAsObjects: false, tagUint8Array: false });
 
 export const decodeAttestationObject = (obj: any): AttestationObject => {
-  return cobrEncoder.decodeMultiple(obj) as unknown as AttestationObject;
+  return (cobrEncoder.decodeMultiple(obj) as any)[0] as AttestationObject;
 };
 
 export type AttestationFormat = "fido-u2f" | "packed" | "android-safetynet" | "android-key" | "tpm" | "apple" | "none";
