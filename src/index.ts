@@ -1,7 +1,14 @@
 import express from "express";
 import cors from "cors";
 import crypto from "crypto";
-import { base64URLDecode, verifyAuthenticatorDataAndAttestation, verifyClientDataJSON, verifyChallenge, parseAttestationObject, verifySignature } from "./helper";
+import {
+  base64URLDecode,
+  verifyAuthenticatorDataAndAttestation,
+  verifyClientDataJSON,
+  verifyChallenge,
+  parseAttestationObject,
+  verifySignature,
+} from "./helper";
 
 const app = express();
 app.use(express.json());
@@ -9,8 +16,10 @@ app.use(express.json());
 // Enable CORS for all routes
 app.use(cors());
 
-const registeredUsers: Record<string, { attestation?: string; clientData?: string; challenge?: string; challengeId?: string; 
-  credID: string; COSEPublicKey: any;}> = {
+const registeredUsers: Record<
+  string,
+  { attestation?: string; clientData?: string; challenge?: string; challengeId?: string; credID: string; COSEPublicKey: any }
+> = {
   //   "12": {
   //     attestation:
   //       "o2NmbXRkbm9uZWdhdHRTdG10oGhhdXRoRGF0YViYSZYN5YgOjGh0NBcPZHZgW4/krrmihjLHmVzzuoMdl2NdAAAAAAAAAAAAAAAAAAAAAAAAAAAAFJ3jImqEXLFLrkNRfrOncBR9P3OopQECAyYgASFYIEJP95sicsTsvFh0Fxfql2DjoTD5z1GKDGCdTIEJS+piIlggqLIX3pbhZlOhcYhVI4EXb1E2tl0guLS/UTuRaytKCdo=",
@@ -22,16 +31,16 @@ const registeredUsers: Record<string, { attestation?: string; clientData?: strin
 const challengeStorage = new Map();
 
 app.post("/generate-challenge", (req, res) => {
-  const { username } = req.body;
+  const { username, type } = req.body;
   const challenge = crypto.randomBytes(32).toString("base64");
   const challengeId = crypto.randomBytes(16).toString("hex");
-  // if (!registeredUsers[username]) {
-  challengeStorage.set(challengeId, challenge);
+  if (type === "register" && !registeredUsers[username]) {
+    challengeStorage.set(challengeId, challenge);
 
-  return res.json({ challengeId, challenge, rpName: "WebAuthn demo", rpId: "localhost" });
-  // }
+    return res.json({ challengeId, challenge, rpName: "WebAuthn demo", rpId: "localhost" });
+  }
 
-  // return res.status(400).send("User already registered!");
+  return res.status(400).send("User already registered!");
 });
 
 app.post("/register", (req, res) => {
@@ -47,7 +56,7 @@ app.post("/register", (req, res) => {
   }
   const { credID, COSEPublicKey } = parseAttestationObject(base64URLDecode(attestationObject));
   console.log("==========registered: public key: " + COSEPublicKey);
-  const userRegistrationData = { attestation: attestationObject, clientData: clientDataJSON, credID, COSEPublicKey }; // Store attestation object  
+  const userRegistrationData = { attestation: attestationObject, clientData: clientDataJSON, credID, COSEPublicKey }; // Store attestation object
 
   registeredUsers[username] = userRegistrationData;
 
@@ -58,9 +67,9 @@ app.post("/login", (req, res) => {
   const { authenticatorData, username, clientDataJSON, challengeId, signature } = req.body;
   const storedChallenge = challengeStorage.get(challengeId);
 
-  // if (!storedChallenge) {
-  //   return res.status(400).send("Invalid challenge ID"); 12
-  // }
+  if (!storedChallenge) {
+    return res.status(400).send("Invalid challenge ID");
+  }
 
   // if (!verifyChallenge(base64URLDecode(clientDataJSON), storedChallenge)) {
   //   return res.status(400).send("Invalid client data JSON");
