@@ -6,7 +6,7 @@ import base64 from "@hexagon/base64";
 import elliptic from "elliptic";
 import { decodeAttestationObject } from "./decodeAttestation";
 import { concatBuffer, convertAAGUIDToString, importKey, mapCoseAlgToWebCryptoAlg, toHash, unwrapEC2Signature } from "./utils";
-import { COSECRV } from "./coseTypes";
+import { COSECRV, isCOSEPublicKeyEC2 } from "./coseTypes";
 const base64url = require("base64url");
 const jsrsasign = require("jsrsasign");
 const NodeRSA = require("node-rsa");
@@ -61,14 +61,16 @@ var COSEALGHASH = {
   "-36": "sha512",
 };
 
-export async function verifyLoginSignature(signature: any, authenticatorData: any, clientDataJSON: any, COSEPublicKey: any) {
+export async function verifyLoginSignature(signatureString: any, authenticatorData: any, clientDataJSON: any, credentialPublicKey: any) {
   const clientDataHash = await toHash(base64URLDecode(clientDataJSON));
   const authDataBuffer = base64URLDecode(authenticatorData);
+  const signature = base64URLDecode(signatureString);
 
   const signatureBase = concatBuffer([authDataBuffer, clientDataHash]);
 
-  const cosePublicKey = new Encoder({ mapsAsObjects: false, tagUint8Array: false }).decodeMultiple(COSEPublicKey) as any;
+  const cosePublicKey = (new Encoder({ mapsAsObjects: false, tagUint8Array: false }).decodeMultiple(credentialPublicKey) as any)[0];
 
+  //   const isEC2 = isCOSEPublicKeyEC2(cosePublicKey);
   const unwrappedSignature = unwrapEC2Signature(signature);
   const alg = cosePublicKey.get(COSEKEYS.alg);
   const crv = cosePublicKey.get(COSEKEYS.crv);
@@ -115,7 +117,7 @@ export async function verifyLoginSignature(signature: any, authenticatorData: an
     hash: { name: subtleAlg },
   };
 
-  const verified = crypto.webcrypto.subtle.verify(verifyAlgorithm, key, unwrappedSignature, signatureBase);
+  const verified = await crypto.webcrypto.subtle.verify(verifyAlgorithm, key, unwrappedSignature, signatureBase);
   return verified;
 }
 export function verifySignature(signature: any, authenticatorData: any, clientDataJSON: any, COSEPublicKey: any) {

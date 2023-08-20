@@ -79,7 +79,7 @@ app.post("/register", (req, res) => {
   res.send(`User registered successfully with id ${username}`);
 });
 
-app.post("/login", (req, res) => {
+app.post("/login", async (req, res) => {
   const { authenticatorData, username, clientDataJSON, challengeId, signature } = req.body;
   const storedChallenge = challengeStorage.get(challengeId);
 
@@ -91,18 +91,20 @@ app.post("/login", (req, res) => {
   //   return res.status(400).send("Invalid client data JSON");
   // }
 
-  //verify signature
-  console.log("before signature verifying .........");
-  // TODO: verify this function
-  verifyLoginSignature(signature, authenticatorData, clientDataJSON, registeredUsers[username].COSEPublicKey);
-  //   verifySignature(signature, authenticatorData, clientDataJSON, registeredUsers[username].COSEPublicKey);
-
-  // Simulate a login process by comparing authenticator data
-  if (verifyAuthenticatorDataAndAttestation(authenticatorData, registeredUsers[username].attestation, registeredUsers[username].clientData)) {
+  const verified = await verifyLoginSignature(signature, authenticatorData, clientDataJSON, registeredUsers[username].COSEPublicKey);
+  if (verified) {
     return res.send(`User logged in successfully for ${username}`);
   } else {
     return res.status(401).send("Authentication failed.");
   }
+  //   verifySignature(signature, authenticatorData, clientDataJSON, registeredUsers[username].COSEPublicKey);
+
+  // Simulate a login process by comparing authenticator data
+  //   if (verifyAuthenticatorDataAndAttestation(authenticatorData, registeredUsers[username].attestation, registeredUsers[username].clientData)) {
+  //     return res.send(`User logged in successfully for ${username}`);
+  //   } else {
+  //     return res.status(401).send("Authentication failed.");
+  //   }
 });
 
 const PORT = process.env.PORT || 3030;

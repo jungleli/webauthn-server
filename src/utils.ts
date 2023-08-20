@@ -1,4 +1,4 @@
-import { COSEALG, COSEKEYS } from "./coseTypes";
+import { COSEALG, COSEKEYS, COSEKTY, COSEPublicKey, COSEPublicKeyEC2, isCOSEKty } from "./coseTypes";
 import crypto from "node:crypto";
 import { Encoder } from "cbor-x";
 import { AsnParser } from "@peculiar/asn1-schema";
@@ -96,7 +96,7 @@ export function convertCOSEtoPKCS(cosePublicKey: Uint8Array): Uint8Array {
   // This is a little sloppy, I'm using COSEPublicKeyEC2 since it could have both x and y, but when
   // there's no y it means it's probably better typed as COSEPublicKeyOKP. I'll leave this for now
   // and revisit it later if it ever becomes an actual problem.
-  const struct = new Encoder({ mapsAsObjects: false, tagUint8Array: false }).decodeMultiple(cosePublicKey) as any;
+  const struct = (new Encoder({ mapsAsObjects: false, tagUint8Array: false }).decodeMultiple(cosePublicKey) as any)[0];
 
   const tag = Uint8Array.from([0x04]);
   const x = struct.get(COSEKEYS.x);
@@ -120,4 +120,9 @@ export async function importKey(opts: {
   const { keyData, algorithm } = opts;
 
   return crypto.webcrypto.subtle.importKey("jwk", keyData, algorithm, false, ["verify"]);
+}
+
+export function isCOSEPublicKeyEC2(cosePublicKey: COSEPublicKey): cosePublicKey is COSEPublicKeyEC2 {
+  const kty = cosePublicKey.get(COSEKEYS.kty);
+  return isCOSEKty(kty) && kty === COSEKTY.EC2;
 }
