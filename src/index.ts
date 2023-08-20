@@ -8,6 +8,8 @@ import {
   verifyChallenge,
   parseAttestationObject,
   verifySignature,
+  verifyLoginSignature,
+  verifyRegistration,
 } from "./helper";
 
 const app = express();
@@ -34,17 +36,30 @@ app.post("/generate-challenge", (req, res) => {
   const { username, type } = req.body;
   const challenge = crypto.randomBytes(32).toString("base64");
   const challengeId = crypto.randomBytes(16).toString("hex");
-  if (type === "register" && !registeredUsers[username]) {
-    challengeStorage.set(challengeId, challenge);
-
-    return res.json({ challengeId, challenge, rpName: "WebAuthn demo", rpId: "localhost" });
+  if (type === "register") {
+    if (!registeredUsers[username]) {
+      challengeStorage.set(challengeId, challenge);
+      return res.json({ challengeId, challenge, rpName: "WebAuthn demo", rpId: "localhost" });
+    } else {
+      return res.status(400).send("User already registered!");
+    }
   }
-
-  return res.status(400).send("User already registered!");
+  if (type === "login") {
+    if (registeredUsers[username]) {
+      challengeStorage.set(challengeId, challenge);
+      return res.json({ challengeId, challenge, rpName: "WebAuthn demo", rpId: "localhost" });
+    } else {
+      return res.status(400).send("User not registered!");
+    }
+  }
 });
 
 app.post("/register", (req, res) => {
-  const { attestationObject, clientDataJSON, username, challengeId } = req.body;
+  const {
+    authData: { attestationObject, clientDataJSON },
+    username,
+    challengeId,
+  } = req.body;
   const storedChallenge = challengeStorage.get(challengeId);
 
   if (!storedChallenge) {
@@ -54,6 +69,7 @@ app.post("/register", (req, res) => {
   if (!verifyChallenge(base64URLDecode(clientDataJSON), storedChallenge)) {
     return res.status(400).send("Invalid client data JSON");
   }
+
   const { credID, COSEPublicKey } = parseAttestationObject(base64URLDecode(attestationObject));
   console.log("==========registered: public key: " + COSEPublicKey);
   const userRegistrationData = { attestation: attestationObject, clientData: clientDataJSON, credID, COSEPublicKey }; // Store attestation object
@@ -77,7 +93,9 @@ app.post("/login", (req, res) => {
 
   //verify signature
   console.log("before signature verifying .........");
-  verifySignature(signature, authenticatorData, clientDataJSON, registeredUsers[username].COSEPublicKey);
+  // TODO: verify this function
+  verifyLoginSignature(signature, authenticatorData, clientDataJSON, registeredUsers[username].COSEPublicKey);
+  //   verifySignature(signature, authenticatorData, clientDataJSON, registeredUsers[username].COSEPublicKey);
 
   // Simulate a login process by comparing authenticator data
   if (verifyAuthenticatorDataAndAttestation(authenticatorData, registeredUsers[username].attestation, registeredUsers[username].clientData)) {
