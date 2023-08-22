@@ -7,8 +7,6 @@ import elliptic from "elliptic";
 import { decodeAttestationObject } from "./decodeAttestation";
 import { concatBuffer, convertAAGUIDToString, importKey, mapCoseAlgToWebCryptoAlg, toHash, unwrapEC2Signature } from "./utils";
 import { COSECRV, isCOSEPublicKeyEC2 } from "./coseTypes";
-const base64url = require("base64url");
-const jsrsasign = require("jsrsasign");
 const NodeRSA = require("node-rsa");
 
 function generateRandomUserId() {
@@ -94,9 +92,9 @@ var COSEALGHASH = {
 };
 
 export async function verifyLoginSignature(signatureString: any, authenticatorData: any, clientDataJSON: any, credentialPublicKey: any) {
-  const clientDataHash = await toHash(base64URLDecode(clientDataJSON));
-  const authDataBuffer = base64URLDecode(authenticatorData);
-  const signature = base64URLDecode(signatureString);
+  const clientDataHash = await toHash(base64URLToArrayBuffer(clientDataJSON));
+  const authDataBuffer = base64URLToArrayBuffer(authenticatorData);
+  const signature = base64URLToArrayBuffer(signatureString);
 
   const signatureBase = concatBuffer([authDataBuffer, clientDataHash]);
 
@@ -167,9 +165,9 @@ export function verifySignature(signature: any, authenticatorData: any, clientDa
 }
 
 function verifyAuthenticatorDataAndAttestation(authenticatorData: any, attestationObject: any, clientDataJSON: any) {
-  const authenticatorDataBuffer = base64URLDecode(authenticatorData);
-  const attestationObjectBuffer = base64URLDecode(attestationObject);
-  const clientDataJSONBuffer = base64URLDecode(clientDataJSON);
+  const authenticatorDataBuffer = base64URLToArrayBuffer(authenticatorData);
+  const attestationObjectBuffer = base64URLToArrayBuffer(attestationObject);
+  const clientDataJSONBuffer = base64URLToArrayBuffer(clientDataJSON);
 
   // Verify authenticator data
   // Authenticator data includes flags, counters, and other information
@@ -192,7 +190,7 @@ function verifyAuthenticatorDataAndAttestation(authenticatorData: any, attestati
   return false;
 }
 
-export function base64URLDecode(input: string) {
+export function base64URLToArrayBuffer(input: string) {
   // Convert base64 URL-safe to base64 (add padding if needed)
   const base64 = input.replace(/-/g, "+").replace(/_/g, "/");
 
@@ -262,10 +260,6 @@ export function verifyChallenge(clientDataJSON: Uint8Array, expectedChallenge: s
   const clientDataString = new TextDecoder().decode(clientDataJSON);
   const clientData = JSON.parse(clientDataString);
 
-  console.log("clientData", clientData);
-  console.log("expectedChallenge", expectedChallenge);
-
-  // Verify challenge
   const challenge = base64URLToString(clientData.challenge);
   return challenge === expectedChallenge;
 }
@@ -403,8 +397,8 @@ export const verifyRegistration = (response: any) => {
     throw new Error(`Unexpected registration response type: ${type}`);
   }
 
-  const _attestationObject = base64URLDecode(attestationObject);
-  const decodedAttestationObject = decodeAttestationObject(base64URLDecode(attestationObject));
+  const _attestationObject = base64URLToArrayBuffer(attestationObject);
+  const decodedAttestationObject = decodeAttestationObject(base64URLToArrayBuffer(attestationObject));
   const fmt = decodedAttestationObject.get("fmt");
   const authData = decodedAttestationObject.get("authData");
   const attStmt = decodedAttestationObject.get("attStmt");
