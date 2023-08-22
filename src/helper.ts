@@ -15,6 +15,38 @@ function generateRandomUserId() {
   return crypto.randomBytes(8).toString("hex");
 }
 
+export const generateRegistrationOptions = ({ username, challenge, userId }): PublicKeyCredentialCreationOptions => {
+  return {
+    challenge,
+    rp: {
+      name: "WebAuthn Demo",
+    },
+    user: {
+      id: userId,
+      name: username,
+      displayName: username,
+    },
+    authenticatorSelection: { userVerification: "preferred" },
+    attestation: "direct",
+    pubKeyCredParams: [
+      {
+        type: "public-key",
+        alg: -7,
+      },
+      {
+        type: "public-key",
+        alg: -257,
+      },
+    ],
+  };
+};
+export const generateLoginOptions = ({ challenge }): PublicKeyCredentialRequestOptions => {
+  return {
+    rpId: "localhost",
+    challenge,
+  };
+};
+
 let COSEKEYS = {
   kty: 1,
   alg: 3,
