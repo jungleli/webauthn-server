@@ -10,6 +10,8 @@ import {
   verifySignature,
   verifyLoginSignature,
   verifyRegistration,
+  generateRegistrationOptions,
+  generateLoginOptions,
 } from "./helper";
 
 const app = express();
@@ -21,25 +23,20 @@ app.use(cors());
 const registeredUsers: Record<
   string,
   { attestation?: string; clientData?: string; challenge?: string; challengeId?: string; credID: string; COSEPublicKey: any }
-> = {
-  //   "12": {
-  //     attestation:
-  //       "o2NmbXRkbm9uZWdhdHRTdG10oGhhdXRoRGF0YViYSZYN5YgOjGh0NBcPZHZgW4/krrmihjLHmVzzuoMdl2NdAAAAAAAAAAAAAAAAAAAAAAAAAAAAFJ3jImqEXLFLrkNRfrOncBR9P3OopQECAyYgASFYIEJP95sicsTsvFh0Fxfql2DjoTD5z1GKDGCdTIEJS+piIlggqLIX3pbhZlOhcYhVI4EXb1E2tl0guLS/UTuRaytKCdo=",
-  //     clientData:
-  //       "eyJ0eXBlIjoid2ViYXV0aG4uY3JlYXRlIiwiY2hhbGxlbmdlIjoiZFQzODU3X3giLCJvcmlnaW4iOiJodHRwOi8vbG9jYWxob3N0OjMwMDAiLCJjcm9zc09yaWdpbiI6ZmFsc2V9",
-  //   },
-};
+> = {};
 
 const challengeStorage = new Map();
 
-app.post("/generate-challenge", (req, res) => {
-  const { username, type } = req.body;
+app.get("/generate-options", (req, res) => {
+  const { username, type } = req.query as { username: string; type: string };
   const challenge = crypto.randomBytes(32).toString("base64");
+  const userId = crypto.randomBytes(32).toString("base64");
   const challengeId = crypto.randomBytes(16).toString("hex");
   if (type === "register") {
     if (!registeredUsers[username]) {
       challengeStorage.set(challengeId, challenge);
-      return res.json({ challengeId, challenge, rpName: "WebAuthn demo", rpId: "localhost" });
+      const publicKeyOptions = generateRegistrationOptions({ username, challenge, userId });
+      return res.json({ publicKeyOptions, challengeId });
     } else {
       return res.status(400).send("User already registered!");
     }
@@ -47,7 +44,8 @@ app.post("/generate-challenge", (req, res) => {
   if (type === "login") {
     if (registeredUsers[username]) {
       challengeStorage.set(challengeId, challenge);
-      return res.json({ challengeId, challenge, rpName: "WebAuthn demo", rpId: "localhost" });
+      const publicKeyOptions = generateLoginOptions({ challenge });
+      return res.json({ publicKeyOptions, challengeId });
     } else {
       return res.status(400).send("User not registered!");
     }
@@ -71,7 +69,6 @@ app.post("/register", (req, res) => {
   }
 
   const { credID, COSEPublicKey } = parseAttestationObject(base64URLDecode(attestationObject));
-  console.log("==========registered: public key: " + COSEPublicKey);
   const userRegistrationData = { attestation: attestationObject, clientData: clientDataJSON, credID, COSEPublicKey }; // Store attestation object
 
   registeredUsers[username] = userRegistrationData;
@@ -80,7 +77,7 @@ app.post("/register", (req, res) => {
 });
 
 app.post("/login", async (req, res) => {
-  const { authenticatorData, username, clientDataJSON, challengeId, signature } = req.body;
+  const { authenticatorData, username, clientDataJSON, signature, challengeId } = req.body;
   const storedChallenge = challengeStorage.get(challengeId);
 
   if (!storedChallenge) {
