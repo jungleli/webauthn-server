@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import crypto from "crypto";
 import {
-  base64URLDecode,
+  base64URLToArrayBuffer,
   verifyAuthenticatorDataAndAttestation,
   verifyClientDataJSON,
   verifyChallenge,
@@ -64,11 +64,11 @@ app.post("/register", (req, res) => {
     return res.status(400).send("Invalid challenge ID");
   }
 
-  if (!verifyChallenge(base64URLDecode(clientDataJSON), storedChallenge)) {
+  if (!verifyChallenge(base64URLToArrayBuffer(clientDataJSON), storedChallenge)) {
     return res.status(400).send("Invalid client data JSON");
   }
 
-  const { credID, COSEPublicKey } = parseAttestationObject(base64URLDecode(attestationObject));
+  const { credID, COSEPublicKey } = parseAttestationObject(base64URLToArrayBuffer(attestationObject));
   const userRegistrationData = { attestation: attestationObject, clientData: clientDataJSON, credID, COSEPublicKey }; // Store attestation object
 
   registeredUsers[username] = userRegistrationData;
@@ -84,9 +84,9 @@ app.post("/login", async (req, res) => {
     return res.status(400).send("Invalid challenge ID");
   }
 
-  // if (!verifyChallenge(base64URLDecode(clientDataJSON), storedChallenge)) {
-  //   return res.status(400).send("Invalid client data JSON");
-  // }
+  if (!verifyChallenge(base64URLToArrayBuffer(clientDataJSON), storedChallenge)) {
+    return res.status(400).send("Invalid client data JSON");
+  }
 
   const verified = await verifyLoginSignature(signature, authenticatorData, clientDataJSON, registeredUsers[username].COSEPublicKey);
   if (verified) {
@@ -94,7 +94,6 @@ app.post("/login", async (req, res) => {
   } else {
     return res.status(401).send("Authentication failed.");
   }
-  //   verifySignature(signature, authenticatorData, clientDataJSON, registeredUsers[username].COSEPublicKey);
 
   // Simulate a login process by comparing authenticator data
   //   if (verifyAuthenticatorDataAndAttestation(authenticatorData, registeredUsers[username].attestation, registeredUsers[username].clientData)) {
